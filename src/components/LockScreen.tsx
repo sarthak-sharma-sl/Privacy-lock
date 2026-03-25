@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { motion } from 'motion/react';
-import { Fingerprint, Delete, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Fingerprint, Delete, X, ScanFace, KeyRound } from 'lucide-react';
 import { AppItem } from '../App';
 import * as Icons from 'lucide-react';
 
@@ -12,10 +12,12 @@ type LockScreenProps = {
   onCancel: () => void;
 };
 
+type UnlockMethod = 'select' | 'pin' | 'fingerprint' | 'face';
+
 export function LockScreen({ app, correctPin, biometricsEnabled, onSuccess, onCancel }: LockScreenProps) {
+  const [method, setMethod] = useState<UnlockMethod>(biometricsEnabled ? 'select' : 'pin');
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
-  const [showBiometricPrompt, setShowBiometricPrompt] = useState(biometricsEnabled);
 
   const handleNumberClick = (num: string) => {
     if (pin.length < 4) {
@@ -44,13 +46,7 @@ export function LockScreen({ app, correctPin, biometricsEnabled, onSuccess, onCa
   };
 
   const simulateBiometricSuccess = () => {
-    setShowBiometricPrompt(false);
     onSuccess();
-  };
-
-  const simulateBiometricFail = () => {
-    setShowBiometricPrompt(false);
-    // Just hide prompt, user can use PIN
   };
 
   const IconComponent = app ? ((Icons as any)[app.icon] || Icons.HelpCircle) : null;
@@ -70,96 +66,193 @@ export function LockScreen({ app, correctPin, biometricsEnabled, onSuccess, onCa
         <X className="w-6 h-6" />
       </button>
 
-      <div className="flex flex-col items-center mt-12">
+      <div className="flex flex-col items-center mt-12 w-full">
         {app && IconComponent && (
           <div className={`w-20 h-20 rounded-3xl ${app.color} flex items-center justify-center mb-6 shadow-xl`}>
             <IconComponent className="w-10 h-10 text-white" />
           </div>
         )}
-        <h2 className="text-2xl font-semibold mb-2">Use PIN to unlock</h2>
+        
+        <h2 className="text-2xl font-semibold mb-2">
+          {method === 'select' && 'Choose access method'}
+          {method === 'pin' && 'Enter PIN'}
+          {method === 'fingerprint' && 'Fingerprint'}
+          {method === 'face' && 'Face Recognition'}
+        </h2>
         <p className="text-muted-foreground">{app?.name}</p>
 
-        {/* PIN Dots */}
-        <div className="flex gap-4 mt-12 mb-8 h-4">
-          {[0, 1, 2, 3].map((i) => (
+        <AnimatePresence mode="wait">
+          {/* METHOD SELECTION PANEL */}
+          {method === 'select' && (
             <motion.div
-              key={i}
-              animate={error ? { x: [-5, 5, -5, 5, 0] } : {}}
-              transition={{ duration: 0.4 }}
-              className={`w-4 h-4 rounded-full border-2 transition-colors ${
-                pin.length > i 
-                  ? 'bg-primary border-primary' 
-                  : error ? 'border-red-500' : 'border-muted-foreground/30'
-              }`}
-            />
-          ))}
-        </div>
-        {error && <p className="text-red-500 text-sm mt-2">Incorrect PIN</p>}
-      </div>
-
-      {/* Number Pad */}
-      <div className="w-full max-w-xs grid grid-cols-3 gap-y-6 gap-x-4 mb-12">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-          <button
-            key={num}
-            onClick={() => handleNumberClick(num.toString())}
-            className="w-20 h-20 mx-auto rounded-full bg-muted/30 flex items-center justify-center text-3xl font-light active:bg-muted/80 transition-colors"
-          >
-            {num}
-          </button>
-        ))}
-        <div className="w-20 h-20 mx-auto flex items-center justify-center">
-          {/* Empty space for alignment */}
-        </div>
-        <button
-          onClick={() => handleNumberClick('0')}
-          className="w-20 h-20 mx-auto rounded-full bg-muted/30 flex items-center justify-center text-3xl font-light active:bg-muted/80 transition-colors"
-        >
-          0
-        </button>
-        <button
-          onClick={handleDelete}
-          className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-muted-foreground active:bg-muted/50 transition-colors"
-        >
-          <Delete className="w-8 h-8" />
-        </button>
-      </div>
-
-      {/* Simulated Biometric Prompt Overlay */}
-      <AnimatePresence>
-        {showBiometricPrompt && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="absolute bottom-0 left-0 right-0 bg-card rounded-t-[2rem] p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-border/50 flex flex-col items-center"
-          >
-            <h3 className="text-xl font-semibold mb-2">Verify it's you</h3>
-            <p className="text-muted-foreground text-center mb-8">
-              Use your fingerprint or face to unlock {app?.name}
-            </p>
-            
-            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-8 animate-pulse">
-              <Fingerprint className="w-10 h-10 text-primary" />
-            </div>
-
-            <div className="flex gap-4 w-full">
-              <button 
-                onClick={simulateBiometricFail}
-                className="flex-1 py-4 rounded-xl font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+              key="select"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full max-w-xs mt-12 space-y-4"
+            >
+              <button
+                onClick={() => setMethod('fingerprint')}
+                className="w-full flex items-center gap-4 p-4 bg-card rounded-2xl shadow-sm border border-border/50 hover:bg-muted/50 transition-colors"
               >
-                Use PIN
+                <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <Fingerprint className="w-6 h-6 text-green-500" />
+                </div>
+                <span className="font-medium text-lg">Fingerprint</span>
               </button>
-              <button 
-                onClick={simulateBiometricSuccess}
-                className="flex-1 py-4 rounded-xl font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+
+              <button
+                onClick={() => setMethod('face')}
+                className="w-full flex items-center gap-4 p-4 bg-card rounded-2xl shadow-sm border border-border/50 hover:bg-muted/50 transition-colors"
               >
-                Simulate Success
+                <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+                  <ScanFace className="w-6 h-6 text-blue-500" />
+                </div>
+                <span className="font-medium text-lg">Face Unlock</span>
               </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+              <button
+                onClick={() => setMethod('pin')}
+                className="w-full flex items-center gap-4 p-4 bg-card rounded-2xl shadow-sm border border-border/50 hover:bg-muted/50 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center">
+                  <KeyRound className="w-6 h-6 text-purple-500" />
+                </div>
+                <span className="font-medium text-lg">Use PIN</span>
+              </button>
+            </motion.div>
+          )}
+
+          {/* PIN PAD */}
+          {method === 'pin' && (
+            <motion.div
+              key="pin"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full flex flex-col items-center"
+            >
+              <div className="flex gap-4 mt-8 mb-8 h-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <motion.div
+                    key={i}
+                    animate={error ? { x: [-5, 5, -5, 5, 0] } : {}}
+                    transition={{ duration: 0.4 }}
+                    className={`w-4 h-4 rounded-full border-2 transition-colors ${
+                      pin.length > i 
+                        ? 'bg-primary border-primary' 
+                        : error ? 'border-red-500' : 'border-muted-foreground/30'
+                    }`}
+                  />
+                ))}
+              </div>
+              {error && <p className="text-red-500 text-sm mb-4">Incorrect PIN</p>}
+
+              <div className="w-full max-w-xs grid grid-cols-3 gap-y-6 gap-x-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => handleNumberClick(num.toString())}
+                    className="w-20 h-20 mx-auto rounded-full bg-muted/30 flex items-center justify-center text-3xl font-light active:bg-muted/80 transition-colors"
+                  >
+                    {num}
+                  </button>
+                ))}
+                <div className="w-20 h-20 mx-auto flex items-center justify-center">
+                  {biometricsEnabled && (
+                    <button onClick={() => setMethod('select')} className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                      Options
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleNumberClick('0')}
+                  className="w-20 h-20 mx-auto rounded-full bg-muted/30 flex items-center justify-center text-3xl font-light active:bg-muted/80 transition-colors"
+                >
+                  0
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-muted-foreground active:bg-muted/50 transition-colors"
+                >
+                  <Delete className="w-8 h-8" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* FINGERPRINT SCANNER */}
+          {method === 'fingerprint' && (
+            <motion.div
+              key="fingerprint"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="flex flex-col items-center mt-20"
+            >
+              <div className="relative w-32 h-32 rounded-full bg-primary/5 flex items-center justify-center mb-12">
+                <motion.div 
+                  animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
+                  className="absolute inset-0 rounded-full bg-primary/20"
+                />
+                <Fingerprint className="w-16 h-16 text-primary relative z-10" />
+              </div>
+              
+              <div className="flex gap-4 w-full max-w-xs">
+                <button 
+                  onClick={() => setMethod('select')}
+                  className="flex-1 py-4 rounded-xl font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={simulateBiometricSuccess}
+                  className="flex-1 py-4 rounded-xl font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  Simulate Scan
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* FACE SCANNER */}
+          {method === 'face' && (
+            <motion.div
+              key="face"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="flex flex-col items-center mt-20"
+            >
+              <div className="relative w-32 h-32 rounded-full bg-blue-500/5 flex items-center justify-center mb-12 overflow-hidden">
+                <motion.div 
+                  animate={{ y: ['-100%', '100%'] }}
+                  transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                  className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/30 to-transparent"
+                />
+                <ScanFace className="w-16 h-16 text-blue-500 relative z-10" />
+              </div>
+              
+              <div className="flex gap-4 w-full max-w-xs">
+                <button 
+                  onClick={() => setMethod('select')}
+                  className="flex-1 py-4 rounded-xl font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={simulateBiometricSuccess}
+                  className="flex-1 py-4 rounded-xl font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                >
+                  Simulate Scan
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }
+
